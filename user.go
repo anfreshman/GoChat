@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"strings"
 )
@@ -19,6 +20,7 @@ func (this *User) ListenMessage() {
 	for {
 		mes := <-this.C
 		// 传入mes，并将其转换为字节数组
+		fmt.Printf("%v", mes)
 		this.conn.Write([]byte(mes + "\n"))
 	}
 }
@@ -28,6 +30,7 @@ func (this *User) Online() {
 	this.server.mapLock.Lock()
 	this.server.OnlineMap[this.Name] = this
 	this.server.mapLock.Unlock()
+	// fmt.Printf("%v", this.server.OnlineMap)
 	this.server.BroadCast(this, "上线")
 }
 
@@ -41,12 +44,11 @@ func (this *User) Offline() {
 
 // 仅对当前客户端发送消息
 func (this *User) SendMsgSimple(msg string) {
-	this.conn.Read([]byte(msg))
+	this.conn.Write([]byte(msg + "\n"))
 }
 
 // 消息处理
 func (this *User) DoMessage(msg string) {
-
 	// 规定:当接收到的msg为whos时，显示当前有哪些用户在线
 	if msg == "whos" {
 		for _, client := range this.server.OnlineMap {
@@ -56,15 +58,20 @@ func (this *User) DoMessage(msg string) {
 	} else if len(msg) > 7 && msg[:7] == "rename|" {
 		// 规定当接收到rename|新名称指令时，更改用户名
 		newName := strings.Split(msg, "|")[1]
+		fmt.Println(newName)
 		_, ok := this.server.OnlineMap[newName]
 		if ok {
 			this.SendMsgSimple("当前用户名已被占用")
 			return
 		} else {
 			this.server.mapLock.Lock()
+			// fmt.Printf("%v", this.server.OnlineMap)
 			delete(this.server.OnlineMap, this.Name)
 			this.server.OnlineMap[newName] = this
+			// fmt.Printf("%v", this.server.OnlineMap)
 			this.server.mapLock.Unlock()
+			this.SendMsgSimple("更新用户名成功")
+			this.Name = newName
 		}
 	} else if len(msg) > 4 && msg[:3] == "to|" {
 		// 规定私聊的信息为 to|用户名|消息

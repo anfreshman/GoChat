@@ -71,7 +71,7 @@ func (this *Server) Handler(conn net.Conn) {
 			// socket读入Client端信息
 			n, err := conn.Read(buf)
 			if n == 0 {
-				// 当n=0时说明连接关闭了，则令其下线
+				// 当n=0时说明连接关闭了，则令其下线，有时好像无法读出，也许需要设置心跳计数器
 				user.Offline()
 				return
 			}
@@ -90,7 +90,7 @@ func (this *Server) Handler(conn net.Conn) {
 		select {
 		case <-isAlive:
 			// 这里什么都不用写，根据select的语法，isAlive读入时，所有channel都会被执行/刷新
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * 100):
 			{
 				// 将用户下线，并从服务器端释放资源
 				user.SendMsgSimple("您已下线")
@@ -99,6 +99,8 @@ func (this *Server) Handler(conn net.Conn) {
 				this.mapLock.Lock()
 				delete(this.OnlineMap, user.Name)
 				this.mapLock.Unlock()
+				// 退出当前Handler
+				return
 			}
 		}
 	}
@@ -127,6 +129,7 @@ func (this *Server) Strat() {
 			fmt.Println("conn has err")
 			continue
 		}
+
 		go this.Handler(conn)
 	}
 
